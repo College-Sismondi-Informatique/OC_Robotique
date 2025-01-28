@@ -1,12 +1,10 @@
 '''
 Protocole Réseau Pour Micro:bit OC Robotique 2025
+Fichier de test de la lib
 Auteur·ice : Vincent Namy
 Version : 1.0
 Date : 28.1.25
 
-TODO :
-- Encryption
-- passer trame en bytes ?
 '''
 
 
@@ -15,21 +13,31 @@ import music
 
 userId = 0
 
+
+def ackedVisualFeedback(acked):
+    if acked:
+        display.show(Image.HAPPY)
+    else:
+        display.show(Image.SAD)            
+    sleep(100)
+    display.clear()
+
 while True:
     
+    # Messages à envoyer
+    destId = 1
     if button_a.was_pressed():
-        if send_msg(1,[],userId, 1):
-            display.show(Image.HAPPY)
-        else:
-            display.show(Image.SAD)
-            
-        sleep(100)
-        display.clear()
-            
+        send_msg(1,[60],userId, destId)
+    elif button_b.was_pressed():
+        send_msg(1,[120],userId, destId)
+        
 
+            
+    # Reception des messages
     m = receive_msg(userId)        
     if m and m.msgId==1:
-        music.pitch(600, duration=100, pin=pin0)
+        print(m.msgStr())
+        music.pitch(m.payload[0]*10, duration=100, pin=pin0)
     elif m and m.msgId==2:
         display.show(Image.SQUARE)
 

@@ -5,8 +5,11 @@ Version : 1.0
 Date : 28.1.25
 
 TODO :
-- Encryption
+- plusieurs messages
 - passer trame en bytes ?
+- doc string
+- template
+- Encryption
 '''
 
 #### Libraries ####
@@ -16,7 +19,7 @@ import radio
 #### Variables globales ####
 seqNum = 0
 tryTime = 100
-Timeout = 500
+Timeout = 300
 ackMsgId = 0
 
 #### Start radio module ####
@@ -90,16 +93,16 @@ def send_msg(msgId, payload: List[int], userId:int, dest:int):
     
     acked = False
     t0 = running_time()
-#     print("Envoyé : ", msg.msgStr())
+    print("Envoyé : ", msg.msgStr())
     
     while not acked and running_time()-t0 < Timeout:
-#         print("envoi")
+        print("envoi")
         radio.send_bytes(bytes(msg_to_trame(msg)))
         sleep(tryTime//2)
         display.clear()
         sleep(tryTime//2)
         acked = receive_ack(msg)
-#         print("acked : ", acked)
+        print("acked : ", acked)
         #print(running_time()-t0)
         
     seqNum += 1
@@ -119,21 +122,20 @@ if __name__ == '__main__':
     
     userId = 0
 
-    while True:
+    # Messages à envoyer
+    destId = 1
+    if button_a.was_pressed():
+        send_msg(1,[60],userId, destId)
+    elif button_b.was_pressed():
+        send_msg(1,[120],userId, destId)
         
-        if button_a.was_pressed():
-            if send_msg(1,[10, 22],userId, 1):
-                display.show(Image.HAPPY)
-            else:
-                display.show(Image.SAD)
-                
-            sleep(100)
-            display.clear()
-                
-        m = receive_msg(userId)
-        
-        if m and m.msgId==1:
-            display.show(Image.SQUARE)
-            sleep(100)
-            display.clear()
+
+            
+    # Reception des messages
+    m = receive_msg(userId)        
+    if m and m.msgId==1:
+        print(m.msgStr())
+        music.pitch(m.payload[0]*10, duration=100, pin=pin0)
+    elif m and m.msgId==2:
+        display.show(Image.SQUARE)
     

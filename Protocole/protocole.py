@@ -1,12 +1,10 @@
 '''
 Protocole Réseau Pour Micro:bit OC Robotique 2025
 Auteur·ice : Vincent Namy
-Version : 1.0
-Date : 28.1.25
+Version : 1.2
+Date : 29.1.25
 
 TODO :
-- passer trame en bytes ?
-- doc string
 - template
 - Encryption
 '''
@@ -40,23 +38,58 @@ class Message:
 
 #### Toolbox ####
 def bytes_to_int(bytesPayload:bytes):
+    '''
+    Convert bytes object to List[int]
+            Parameters:
+                    bytesPayload(bytes): payload in bytes format
+            Returns:
+                    intPayload(List[int]): payload in int format
+    '''
     intPayload = []
     for i in bytesPayload:
         intPayload.append(ord(bytes([i])))        
     return intPayload
 
+
 def int_to_bytes(intPayload:List[int]):    
+    '''
+    Convert  List[int] to bytes object 
+            Parameters:
+                    intPayload(List[int]): payload in int format
+            Returns:
+                    bytesPayload(bytes): payload in bytes format
+    '''
     return bytes(intPayload)
 
 
 #### Fonctions réseaux ####
 def msg_to_trame(rawMsg : Message):
+    '''
+    Crée une trame à partir des paramètres d'un objet Message afin de préparer un envoi.
+    1) Création d'une liste de int dans l'ordre du protocole
+    2) Conversion en bytes
+            Parameters:
+                    rawMsg(Message): Objet Message contenant tous les paramètres du message à envoyer
+            Returns:
+                    trame(bytes): payload convertie au format bytes
+    '''
     l = [rawMsg.dest, rawMsg.exped, rawMsg.seqNum, rawMsg.msgId] + rawMsg.payload
-    rawMsg.crc = sum(l)%255  # ?
-    return l + [rawMsg.crc]
+    rawMsg.crc = sum(l)%255  
+    return int_to_bytes(l + [rawMsg.crc])
 
 
-def trame_to_msg(trame : List[int], userId :int):
+def trame_to_msg(trame : bytes, userId :int):
+    '''
+    Crée un objet Message à partir d'une trame brute recue.
+    1) Conversion de bytes en liste de int
+    2) Découpage de la liste de int dans l'ordre du protocole pour remplir l'objet Message
+    3) Check du CRC et du destinataire
+            Parameters:
+                    trame(bytes): payload au format bytes
+            Returns:
+                    msgObj(Message): Objet Message contenant tous les paramètres du message recu si crc et destinataire ok, sinon None
+    '''
+    trame = bytes_to_int(trame)
     msgObj = Message(trame[0], trame[1], trame[2], trame[3], trame[4:-1], trame[-1])
     if msgObj.crc == sum(trame[:-1])%255:
         if msgObj.dest != userId :
@@ -68,49 +101,91 @@ def trame_to_msg(trame : List[int], userId :int):
     
     
 def ack_msg(msg : Message):
+    '''
+    Envoie un ack du message recu.
+    1) Création d'une liste de int correspondant au ack dans l'ordre du protocole
+    2) Conversion en bytes
+    3) Envoi
+            Parameters:
+                    msg(Message): Objet Message contenant tous les paramètres du message à acker
+    '''
     ack = [msg.exped, msg.dest, msg.seqNum, ackMsgId]
     ack += [sum(ack)%255]
     radio.send_bytes(int_to_bytes(ack))
-    print(ack)
-    sleep(100)
 
 
 def receive_ack(msg: Msg):
+    '''
+    Attend un ack correspondant au message recu.
+    1) Récupère les messages recus
+    2) Conversion trame en objet Message
+    3) Check si le ack correspond
+            Parameters:
+                    msg(Message): Objet Message duquel on attend un ack
+            Returns:
+                    acked(bool): True si message acké, sinon False
+    '''
     new_trame = radio.receive_bytes()
     if new_trame:
-        msgRecu = trame_to_msg(bytes_to_int(new_trame), msg.exped)
+        msgRecu = trame_to_msg(new_trame, msg.exped)
 #         print("Reçu Ack : ", msgRecu.msgStr())
         return msgRecu.exped == msg.dest and msgRecu.dest == msg.exped and msgRecu.seqNum == msg.seqNum and msgRecu.msgId == ackMsgId
     else:
         return False
     
 
-def send_msg(msgId, payload: List[int], userId:int, dest:int):
+def send_msg(msgId:int, payload:List[int], userId:int, dest:int):
+    '''
+    Envoie un message.
+    1) Crée un objet Message à partir des paramètres
+    En boucle jusqu'à un timeout ou ack: 
+        2) Conversion objet Message en trame et envoi 
+        3) Attend et check le ack
+    4) Incrémentation du numéro de séquence
+            Parameters:
+                    msgId(int): Id du type de message
+                    payload(List[int]): liste contenant le corps du message
+                    userId(int): Id de Utilisateur·ice envoyant message
+                    dest(int): Id de Utilisateur·ice auquel le message est destiné
+            Returns:
+                    acked(bool): True si message acké, sinon False
+    '''
+
     global seqNum
     
     msg = Message(dest, userId, seqNum, msgId, payload,0)
     
     acked = False
     t0 = running_time()
-    print("Envoyé : ", msg.msgStr())
+#     print("Envoyé : ", msg.msgStr())
     
     while not acked and running_time()-t0 < Timeout:
-        print("envoi")
-        radio.send_bytes(int_to_bytes(msg_to_trame(msg)))
+#         print("envoi")
+        radio.send_bytes(msg_to_trame(msg))
         sleep(tryTime//2)
         display.clear()
         sleep(tryTime//2)
         acked = receive_ack(msg)
-        print("acked : ", acked)
-        #print(running_time()-t0)
+#         print("acked : ", acked)
+#         print(running_time()-t0)
         
     seqNum += 1
     return acked
 
 def receive_msg(userId:int):
+    '''
+    Attend un message.
+    1) Récupère les messages recus
+    2) Conversion trame en objet Message
+    3) Check si ce n'est pas un ack
+            Parameters:
+                    userId(int): Id de Utilisateur·ice attendant un message
+            Returns:
+                    msgRecu(Message): Objet Message contenant tous les paramètres du message
+    '''
     new_trame = radio.receive_bytes()
     if new_trame:
-        msgRecu = trame_to_msg(bytes_to_int(new_trame), userId)
+        msgRecu = trame_to_msg(new_trame, userId)
         #print("Reçu : ", msgRecu.msgStr())
         if msgRecu.msgId != ackMsgId:
             ack_msg(msgRecu)
@@ -118,6 +193,7 @@ def receive_msg(userId:int):
 
 
 if __name__ == '__main__':
+    import music
     
     userId = 0
 
@@ -126,10 +202,8 @@ if __name__ == '__main__':
         destId = 1
         if button_a.was_pressed():
             send_msg(1,[60],userId, destId)
-            button_a.was_pressed()
         elif button_b.was_pressed():
             send_msg(1,[120],userId, destId)
-            button_b.was_pressed()
             
 
                 

@@ -1,7 +1,7 @@
 '''
 Protocole Réseau Pour Micro:bit OC Robotique 2025
 Auteur·ice : Vincent Namy
-Version : 1.2
+Version : 1.3
 Date : 29.1.25
 
 TODO :
@@ -17,7 +17,7 @@ import radio
 seqNum = 0
 tryTime = 100
 Timeout = 300
-ackMsgId = 0
+ackMsgId = 255
 
 #### Start radio module ####
 radio.config(channel=7, address=50)
@@ -74,7 +74,7 @@ def msg_to_trame(rawMsg : Message):
                     trame(bytes): payload convertie au format bytes
     '''
     l = [rawMsg.dest, rawMsg.exped, rawMsg.seqNum, rawMsg.msgId] + rawMsg.payload
-    rawMsg.crc = sum(l)%255  
+    rawMsg.crc = sum(l)%256  
     return int_to_bytes(l + [rawMsg.crc])
 
 
@@ -91,7 +91,7 @@ def trame_to_msg(trame : bytes, userId :int):
     '''
     trame = bytes_to_int(trame)
     msgObj = Message(trame[0], trame[1], trame[2], trame[3], trame[4:-1], trame[-1])
-    if msgObj.crc == sum(trame[:-1])%255:
+    if msgObj.crc == sum(trame[:-1])%256:
         if msgObj.dest != userId :
 #             print("Not for me")
             return None
@@ -110,7 +110,7 @@ def ack_msg(msg : Message):
                     msg(Message): Objet Message contenant tous les paramètres du message à acker
     '''
     ack = [msg.exped, msg.dest, msg.seqNum, ackMsgId]
-    ack += [sum(ack)%255]
+    ack += [sum(ack)%256]
     radio.send_bytes(int_to_bytes(ack))
 
 

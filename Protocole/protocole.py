@@ -5,7 +5,6 @@ Version : 1.0
 Date : 28.1.25
 
 TODO :
-- plusieurs messages
 - passer trame en bytes ?
 - doc string
 - template
@@ -33,11 +32,11 @@ class Message:
     self.exped = exped
     self.dest = dest
     self.seqNum = seqNum
+    self.msgId = msgId
     self.payload = payload
     self.crc = crc
-    self.msgId = msgId
   def msgStr(self):
-      return "[n" + str(self.seqNum)+ "] "+ str(self.exped)+ " -> "+ str(self.dest)+ " : type "+ str(self.msgId)+" : " +str(self.payload)+ " (crc="+ str(self.crc)+")"
+      return str(self.exped)+ " -> "+ str(self.dest)+ "n[" + str(self.seqNum)+ "] "+ " : type "+ str(self.msgId)+" : " +str(self.payload)+ " (crc="+ str(self.crc)+")"
 
 #### Toolbox ####
 def bytes_to_int(bytesPayload:bytes):
@@ -71,7 +70,7 @@ def trame_to_msg(trame : List[int], userId :int):
 def ack_msg(msg : Message):
     ack = [msg.exped, msg.dest, msg.seqNum, ackMsgId]
     ack += [sum(ack)%255]
-    radio.send_bytes(bytes(ack))
+    radio.send_bytes(int_to_bytes(ack))
     print(ack)
     sleep(100)
 
@@ -97,7 +96,7 @@ def send_msg(msgId, payload: List[int], userId:int, dest:int):
     
     while not acked and running_time()-t0 < Timeout:
         print("envoi")
-        radio.send_bytes(bytes(msg_to_trame(msg)))
+        radio.send_bytes(int_to_bytes(msg_to_trame(msg)))
         sleep(tryTime//2)
         display.clear()
         sleep(tryTime//2)
@@ -122,20 +121,23 @@ if __name__ == '__main__':
     
     userId = 0
 
-    # Messages à envoyer
-    destId = 1
-    if button_a.was_pressed():
-        send_msg(1,[60],userId, destId)
-    elif button_b.was_pressed():
-        send_msg(1,[120],userId, destId)
-        
-
+    while True:
+        # Messages à envoyer
+        destId = 1
+        if button_a.was_pressed():
+            send_msg(1,[60],userId, destId)
+            button_a.was_pressed()
+        elif button_b.was_pressed():
+            send_msg(1,[120],userId, destId)
+            button_b.was_pressed()
             
-    # Reception des messages
-    m = receive_msg(userId)        
-    if m and m.msgId==1:
-        print(m.msgStr())
-        music.pitch(m.payload[0]*10, duration=100, pin=pin0)
-    elif m and m.msgId==2:
-        display.show(Image.SQUARE)
+
+                
+        # Reception des messages
+        m = receive_msg(userId)        
+        if m and m.msgId==1:
+            print(m.msgStr())
+            music.pitch(m.payload[0]*10, duration=100, pin=pin0)
+        elif m and m.msgId==2:
+            display.show(Image.SQUARE)
     

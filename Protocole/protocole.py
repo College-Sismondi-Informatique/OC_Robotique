@@ -3,10 +3,6 @@ Protocole Réseau Pour Micro:bit OC Robotique 2025
 Auteur·ice : Vincent Namy
 Version : 1.3
 Date : 29.1.25
-
-TODO :
-- template
-- Encryption
 '''
 
 #### Libraries ####

@@ -8,6 +8,8 @@ Date : 29.1.25
 #### Libraries ####
 from microbit import *
 import radio
+import random
+import aes
 
 #### Variables globales ####
 seqNum = 0
@@ -18,6 +20,12 @@ ackMsgId = 255
 #### Start radio module ####
 radio.config(channel=7, address=50)
 radio.on()
+
+#### Init AES ####
+key    = bytes([ random.getrandbits(8) for _ in range(16)])
+iv     = bytes([ 0 for _ in range(16)])
+cipher = aes.AES(key)
+
 
 
 #### Classe Message ####
@@ -137,7 +145,8 @@ def receive_ack(msg: Msg):
     '''
     new_trame = radio.receive_bytes()
     if new_trame:
-        msgRecu = trame_to_msg(new_trame, msg.exped)
+        decrypted = cipher.decrypt_cfb(new_trame, iv)
+        msgRecu = trame_to_msg(decrypted, msg.exped)
 #         print("Reçu Ack : ", msgRecu.msgStr())
         return msgRecu.exped == msg.dest and msgRecu.dest == msg.exped and msgRecu.seqNum == msg.seqNum and msgRecu.msgId == ackMsgId
     else:
@@ -167,11 +176,13 @@ def send_msg(msgId:int, payload:List[int], userId:int, dest:int):
     
     acked = False
     t0 = running_time()
-#     print("Envoyé : ", msg.msgStr())
-    
+    print("Envoyé : ", msg.msgStr())
+    print(msg.msgStr())
     while not acked and running_time()-t0 < Timeout:
 #         print("envoi")
-        radio.send_bytes(msg_to_trame(msg))
+        encrypted = cipher.encrypt_cfb(msg_to_trame(msg), iv)
+        print(encrypted)
+        radio.send_bytes(encrypted)
         sleep(tryTime//2)
         display.clear()
         sleep(tryTime//2)
@@ -205,11 +216,11 @@ def receive_msg(userId:int):
 if __name__ == '__main__':
     import music
     
-    userId = 0
+    userId = 1
 
     while True:
         # Messages à envoyer
-        destId = 1
+        destId = 2
         if button_a.was_pressed():
             send_msg(1,[60],userId, destId)
         elif button_b.was_pressed():
@@ -218,9 +229,10 @@ if __name__ == '__main__':
 
                 
         # Reception des messages
-        m = receive_msg(userId)        
-        if m and m.msgId==1:
+        m = receive_msg(userId)
+        if m:
             print(m.msgStr())
+        if m and m.msgId==1:
             music.pitch(m.payload[0]*10, duration=100, pin=pin0)
         elif m and m.msgId==2:
             display.show(Image.SQUARE)

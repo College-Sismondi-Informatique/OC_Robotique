@@ -22,7 +22,7 @@ radio.config(channel=7, address=50)
 radio.on()
 
 #### Init AES ####
-key    = bytes([ random.getrandbits(8) for _ in range(16)])
+key    = bytes([156, 110, 239, 52, 206, 138, 164, 35, 3, 76, 3, 60, 84, 199, 63, 253])#bytes([ random.getrandbits(8) for _ in range(16)])
 iv     = bytes([ 0 for _ in range(16)])
 cipher = aes.AES(key)
 
@@ -108,6 +108,7 @@ def trame_to_msg(trame : bytes, userId :int):
                     msgObj(Message): Objet Message contenant tous les paramètres du message recu si crc et destinataire ok, sinon None
     '''
     trame = bytes_to_int(trame)
+    print(trame)
     msgObj = Message(trame[0], trame[1], trame[2], trame[3], trame[4:-1], trame[-1])
     if msgObj.crc == sum(trame[:-1])%256:
         if msgObj.dest != userId :
@@ -129,7 +130,7 @@ def ack_msg(msg : Message):
     '''
     ack = [msg.exped, msg.dest, msg.seqNum, ackMsgId]
     ack += [sum(ack)%256]
-    radio.send_bytes(int_to_bytes(ack))
+    radio.send_bytes(cipher.encrypt_cfb(int_to_bytes(ack), iv))
 
 
 def receive_ack(msg: Msg):
@@ -148,7 +149,10 @@ def receive_ack(msg: Msg):
         decrypted = cipher.decrypt_cfb(new_trame, iv)
         msgRecu = trame_to_msg(decrypted, msg.exped)
 #         print("Reçu Ack : ", msgRecu.msgStr())
-        return msgRecu.exped == msg.dest and msgRecu.dest == msg.exped and msgRecu.seqNum == msg.seqNum and msgRecu.msgId == ackMsgId
+        if msgRecu:
+            return msgRecu.exped == msg.dest and msgRecu.dest == msg.exped and msgRecu.seqNum == msg.seqNum and msgRecu.msgId == ackMsgId
+        else:
+            return False
     else:
         return False
     
@@ -177,11 +181,10 @@ def send_msg(msgId:int, payload:List[int], userId:int, dest:int):
     acked = False
     t0 = running_time()
     print("Envoyé : ", msg.msgStr())
-    print(msg.msgStr())
     while not acked and running_time()-t0 < Timeout:
 #         print("envoi")
-        encrypted = cipher.encrypt_cfb(msg_to_trame(msg), iv)
-        print(encrypted)
+        trame =  msg_to_trame(msg)
+        encrypted = cipher.encrypt_cfb(trame, iv)
         radio.send_bytes(encrypted)
         sleep(tryTime//2)
         display.clear()
@@ -206,9 +209,10 @@ def receive_msg(userId:int):
     '''
     new_trame = radio.receive_bytes()
     if new_trame:
-        msgRecu = trame_to_msg(new_trame, userId)
+        decrypted = cipher.decrypt_cfb(new_trame, iv)
+        msgRecu = trame_to_msg(decrypted, userId)
         #print("Reçu : ", msgRecu.msgStr())
-        if msgRecu.msgId != ackMsgId:
+        if msgRecu.msgId != ackMsgId: # Ajouter un if msgRecu 
             ack_msg(msgRecu)
             return msgRecu
 
@@ -216,11 +220,11 @@ def receive_msg(userId:int):
 if __name__ == '__main__':
     import music
     
-    userId = 1
+    userId = 0
 
     while True:
         # Messages à envoyer
-        destId = 2
+        destId = 1
         if button_a.was_pressed():
             send_msg(1,[60],userId, destId)
         elif button_b.was_pressed():

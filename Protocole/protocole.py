@@ -1,15 +1,19 @@
 '''
 Protocole Réseau Pour Micro:bit OC Robotique 2025
 Auteur·ice : Vincent Namy
-Version : 1.3
-Date : 29.1.25
+Version : 1.4
+Date : 03.03.25
 '''
+
+encryption = False
 
 #### Libraries ####
 from microbit import *
 import radio
-import random
-import aes
+
+if encryption:
+    import random
+    import aes
 
 #### Variables globales ####
 seqNum = 0
@@ -22,9 +26,10 @@ radio.config(channel=7, address=50)
 radio.on()
 
 #### Init AES ####
-key    = bytes([156, 110, 239, 52, 206, 138, 164, 35, 3, 76, 3, 60, 84, 199, 63, 253])#bytes([ random.getrandbits(8) for _ in range(16)])
-iv     = bytes([ 0 for _ in range(16)])
-cipher = aes.AES(key)
+if encryption:
+    key    = bytes([156, 110, 239, 52, 206, 138, 164, 35, 3, 76, 3, 60, 84, 199, 63, 253]) # Generate yours with bytes([ random.getrandbits(8) for _ in range(16)])
+    iv     = bytes([ 0 for _ in range(16)])
+    cipher = aes.AES(key)
 
 
 
@@ -85,37 +90,45 @@ def msg_to_trame(rawMsg : Message):
     '''
     Crée une trame à partir des paramètres d'un objet Message afin de préparer un envoi.
     1) Création d'une liste de int dans l'ordre du protocole
-    2) Conversion en bytes
+    2) Encryption si nécessaire
+    3) Conversion en bytes
             Parameters:
                     rawMsg(Message): Objet Message contenant tous les paramètres du message à envoyer
             Returns:
                     trame(bytes): payload convertie au format bytes
     '''
     l = [rawMsg.dest, rawMsg.exped, rawMsg.seqNum, rawMsg.msgId] + rawMsg.payload
-    rawMsg.crc = sum(l)%256  
-    return int_to_bytes(l + [rawMsg.crc])
+    rawMsg.crc = sum(l)%256
+    trame = l + [rawMsg.crc]
+    
+    if encryption:
+        trame = cipher.encrypt_cfb(trame, iv)
+        
+    return int_to_bytes(trame)
 
 
 def trame_to_msg(trame : bytes, userId :int):
     '''
     Crée un objet Message à partir d'une trame brute recue.
     1) Conversion de bytes en liste de int
-    2) Découpage de la liste de int dans l'ordre du protocole pour remplir l'objet Message
-    3) Check du CRC et du destinataire
+    2) Decryption si nécessaire
+    3) Découpage de la liste de int dans l'ordre du protocole pour remplir l'objet Message
+    4) Check du CRC et du destinataire
             Parameters:
                     trame(bytes): payload au format bytes
             Returns:
                     msgObj(Message): Objet Message contenant tous les paramètres du message recu si crc et destinataire ok, sinon None
     '''
     trame = bytes_to_int(trame)
-    print(trame)
+    
+    if encryption:
+        trame = bytes_to_int(cipher.decrypt_cfb(trame, iv))
+        
     msgObj = Message(trame[0], trame[1], trame[2], trame[3], trame[4:-1], trame[-1])
     if msgObj.crc == sum(trame[:-1])%256:
-        if msgObj.dest != userId :
-#             print("Not for me")
+        if msgObj.dest != userId : # Not for me
             return None
         else:
-#             print(msgObj.msgStr())
             return msgObj
     
     
@@ -128,9 +141,10 @@ def ack_msg(msg : Message):
             Parameters:
                     msg(Message): Objet Message contenant tous les paramètres du message à acker
     '''
-    ack = [msg.exped, msg.dest, msg.seqNum, ackMsgId]
-    ack += [sum(ack)%256]
-    radio.send_bytes(cipher.encrypt_cfb(int_to_bytes(ack), iv))
+    
+    msgAck = Message(msg.exped, msg.dest, msg.seqNum, ackMsgId, [],0)
+    trame = msg_to_trame(msgAck)
+    radio.send_bytes(trame)
 
 
 def receive_ack(msg: Msg):
@@ -146,13 +160,8 @@ def receive_ack(msg: Msg):
     '''
     new_trame = radio.receive_bytes()
     if new_trame:
-        decrypted = cipher.decrypt_cfb(new_trame, iv)
-        msgRecu = trame_to_msg(decrypted, msg.exped)
-#         print("Reçu Ack : ", msgRecu.msgStr())
-        if msgRecu:
-            return msgRecu.exped == msg.dest and msgRecu.dest == msg.exped and msgRecu.seqNum == msg.seqNum and msgRecu.msgId == ackMsgId
-        else:
-            return False
+        msgRecu = trame_to_msg(new_trame, msg.exped)
+        return msgRecu and msgRecu.exped == msg.dest and msgRecu.dest == msg.exped and msgRecu.seqNum == msg.seqNum and msgRecu.msgId == ackMsgId
     else:
         return False
     
@@ -181,16 +190,14 @@ def send_msg(msgId:int, payload:List[int], userId:int, dest:int):
     acked = False
     t0 = running_time()
     print("Envoyé : ", msg.msgStr())
+    print(msg.msgStr())
     while not acked and running_time()-t0 < Timeout:
-#         print("envoi")
-        trame =  msg_to_trame(msg)
-        encrypted = cipher.encrypt_cfb(trame, iv)
-        radio.send_bytes(encrypted)
+        trame = msg_to_trame(msg)
+        radio.send_bytes(trame)
         sleep(tryTime//2)
         display.clear()
         sleep(tryTime//2)
         acked = receive_ack(msg)
-#         print("acked : ", acked)
 #         print(running_time()-t0)
         
     seqNum += 1
@@ -209,10 +216,8 @@ def receive_msg(userId:int):
     '''
     new_trame = radio.receive_bytes()
     if new_trame:
-        decrypted = cipher.decrypt_cfb(new_trame, iv)
-        msgRecu = trame_to_msg(decrypted, userId)
-        #print("Reçu : ", msgRecu.msgStr())
-        if msgRecu.msgId != ackMsgId: # Ajouter un if msgRecu 
+        msgRecu = trame_to_msg(new_trame, userId)
+        if msgRecu and msgRecu.msgId != ackMsgId:
             ack_msg(msgRecu)
             return msgRecu
 
@@ -220,13 +225,13 @@ def receive_msg(userId:int):
 if __name__ == '__main__':
     import music
     
-    userId = 0
+    userId = 1
 
     while True:
         # Messages à envoyer
-        destId = 1
+        destId = 0
         if button_a.was_pressed():
-            send_msg(1,[60],userId, destId)
+            print(send_msg(1,[60],userId, destId))
         elif button_b.was_pressed():
             send_msg(1,[120],userId, destId)
             

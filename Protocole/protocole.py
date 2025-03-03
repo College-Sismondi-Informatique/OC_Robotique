@@ -189,8 +189,6 @@ def send_msg(msgId:int, payload:List[int], userId:int, dest:int):
     
     acked = False
     t0 = running_time()
-    print("Envoyé : ", msg.msgStr())
-    print(msg.msgStr())
     while not acked and running_time()-t0 < Timeout:
         trame = msg_to_trame(msg)
         radio.send_bytes(trame)

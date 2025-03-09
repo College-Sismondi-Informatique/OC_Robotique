@@ -198,7 +198,7 @@ def send_msg(msgId:int, payload:List[int], userId:int, dest:int):
         acked = receive_ack(msg)
 #         print(running_time()-t0)
         
-    seqNum += 1
+    seqNum = (seqNum+1)%256
     return acked
 
 def receive_msg(userId:int):

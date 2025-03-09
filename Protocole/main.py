@@ -14,14 +14,6 @@ import music
 userId = 0
 
 
-def ackedVisualFeedback(acked):
-    if acked:
-        display.show(Image.HAPPY)
-    else:
-        display.show(Image.SAD)            
-    sleep(100)
-    display.clear()
-
 while True:
     
     # Messages à envoyer

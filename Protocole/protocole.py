@@ -126,9 +126,7 @@ def trame_to_msg(trame : bytes, userId :int):
         
     msgObj = Message(trame[0], trame[1], trame[2], trame[3], trame[4:-1], trame[-1])
     if msgObj.crc == sum(trame[:-1])%256:
-        if msgObj.dest != userId : # Not for me
-            return None
-        else:
+        if msgObj.dest == userId : 
             return msgObj
     
     

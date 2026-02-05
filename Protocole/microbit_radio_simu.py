@@ -14,7 +14,7 @@ def list_to_bytes(payload:list[int]):
             Returns:
                     bytesPayload(bytes): payload in bytes format
     '''
-    return bytes(payload)
+    return [i.to_bytes(length=2, byteorder="little")  for i in payload]
 
 def bytes_to_list(bytesPayload:bytes):
     '''
@@ -26,11 +26,8 @@ def bytes_to_list(bytesPayload:bytes):
     '''
     if bytesPayload is None :
         return None
-    
-    intPayload = []
-    for i in bytesPayload:
-        intPayload.append(ord(bytes([i])))        
-    return intPayload   
+     
+    return [int.from_bytes(b, byteorder="little") for b in bytesPayload]   
 
 class radio:
     msg = None # 1-buffer of bytes          
@@ -67,7 +64,7 @@ class radio:
 if __name__ == '__main__':
 #     from microbit_radio_simu import *
 
-    data = [12, 42]
+    data = [12, 60000]
     radio.send_int(data)
     print(radio.receive_int())
     print(radio.receive_int())

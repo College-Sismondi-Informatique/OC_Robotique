@@ -43,7 +43,15 @@ class radio:
     def receive_bytes(self):
         m = self.msg
         self.msg = None
-        return m
+        return m         
+    
+    @classmethod
+    def send_int(self,a:int):
+        self.send_bytes(list_to_bytes(a))
+        
+    @classmethod    
+    def receive_int(self):
+        return bytes_to_list(self.receive_bytes())
     
     @classmethod
     def send(self,a):
@@ -59,8 +67,8 @@ class radio:
 if __name__ == '__main__':
 #     from microbit_radio_simu import *
 
-    data = list_to_bytes([12, 42])
-    radio.send_bytes(data)
-    print(bytes_to_list(radio.receive_bytes()))
-    print(bytes_to_list(radio.receive_bytes()))
+    data = [12, 42]
+    radio.send_int(data)
+    print(radio.receive_int())
+    print(radio.receive_int())
 

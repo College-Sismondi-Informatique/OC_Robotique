@@ -50,14 +50,14 @@ class radio:
         self.msg = a
         
     @classmethod    
-    def receive_bytes(self):
+    def receive(self):
         m = self.msg
         self.msg = None
         return m
     
 
 if __name__ == '__main__':
-#     from microbit_radio import *
+#     from microbit_radio_simu import *
 
     data = list_to_bytes([12, 42])
     radio.send_bytes(data)

@@ -6,6 +6,7 @@ Date : 04.01.26
 '''
 
 
+
 def list_to_bytes(payload:list[int]):    
     '''
     Convert  List[any] to bytes object via str
@@ -14,7 +15,7 @@ def list_to_bytes(payload:list[int]):
             Returns:
                     bytesPayload(bytes): payload in bytes format
     '''
-    return [i.to_bytes(length=2, byteorder="little")  for i in payload]
+    return b''.join([i.to_bytes(2, "little")  for i in payload])
 
 def bytes_to_list(bytesPayload:bytes):
     '''
@@ -26,8 +27,8 @@ def bytes_to_list(bytesPayload:bytes):
     '''
     if bytesPayload is None :
         return None
-     
-    return [int.from_bytes(b, byteorder="little") for b in bytesPayload]   
+    bytesList = [bytesPayload[i:i+2] for i in range(0, len(bytesPayload), 2)]
+    return [int.from_bytes(b, "little") for b in bytesList]    
 
 class radio:
     msg = None # 1-buffer of bytes          

@@ -98,23 +98,27 @@ def reception_message(mon_id):
     return None, None, None, None, None # Retourne None en cas d'échec de réception
 
 if __name__ == '__main__':
-    while True :
-        exp_id = 0
-        dest_id  = 1
-        if False :
-                # Expéditeur
-                data = [5, 623, 212, 40]
-                id_aruco_msg = 12
-                print("Envoi msg", seqNum)
-                print(envoi_message(dest_id, exp_id, id_aruco_msg, data))
-                sleep(1000)
+    mon_id = 1
+    role = "expediteur"
+
+
+    while True:      
+        if role == "expediteur":
+            data = str_to_list("coucou") # [5, 623, 212, 40]
+            id_msg = 12
+            dest_id = 0
             
-        else:
-                # Destinataire
-                id_dest, id_exped, id_category, payload, seqNum = reception_message(dest_id)
-                if id_dest:
-                    print("Message", seqNum,"pour", id_dest,"de",  id_exped, "-- type", id_category, "-- Contenu :", payload)
-                sleep(100)
+            print("Envoi msg", envoi_message(dest_id, mon_id, id_msg, data))
+            sleep(1000)
+            
+
+        elif role == "destinataire":
+            id_dest, id_exped, id_category, payload, seqNum = reception_message(mon_id)
+            
+            if id_dest != None:
+                print("Message", seqNum,"pour", id_dest,"de",  id_exped, "-- type", id_category, "-- Contenu :", list_to_str(payload))
+                display.scroll(list_to_str(payload))
+            sleep(200)
         
         
 

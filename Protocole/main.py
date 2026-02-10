@@ -1,35 +1,32 @@
 '''
 Protocole Réseau Pour Micro:bit OC Robotique 2025
-Fichier de test de la lib
+Fichier de test de la lib protocole
 Auteur·ice : Vincent Namy
-Version : 1.0
-Date : 28.1.25
+Version : 2.0
+Date : 10.02.26
 
 '''
-
-
 from protocole import *
-import music
 
-userId = 0
+mon_id = ...
+role = ...
 
 
-while True:
-    
-    # Messages à envoyer
-    destId = 1
-    if button_a.was_pressed():
-        send_msg(1,[60],userId, destId)
-    elif button_b.was_pressed():
-        send_msg(1,[120],userId, destId)
+while True:      
+    if role == "expediteur":
+        data = str_to_list("...")
+        id_msg = ...
+        dest_id = ...
+        
+        print("Envoi msg", envoi_message(dest_id, mon_id, id_msg, data))
+        sleep(1000)
         
 
-            
-    # Reception des messages
-    m = receive_msg(userId)        
-    if m and m.msgId==1:
-        print(m.msgStr())
-        music.pitch(m.payload[0]*10, duration=100, pin=pin0)
-    elif m and m.msgId==2:
-        display.show(Image.SQUARE)
+    elif role == "destinataire":
+        id_dest, id_exped, id_category, payload, seqNum = reception_message(mon_id)
+        
+        if id_dest != None:
+            print("Message", seqNum,"pour", id_dest,"de",  id_exped, "-- type", id_category, "-- Contenu :", list_to_str(payload))
+            display.scroll(list_to_str(payload))
+        sleep(200)
 

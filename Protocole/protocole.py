@@ -1,42 +1,52 @@
-from microbit import *
-import radio
-
 seqNum = 0
 tryTime = 200
 Timeout = 1000
+port = '/dev/ttyACM0' #ou 'radio'
+
+############## PAS BESOIN DE COMPRENDRE CECI ###########################################
+if port == "radio":
+    from microbit import *
+    import radio
+    def send(trame):
+        radio.send_bytes(list_to_bytes(trame))
+        
+    def receive():
+        r= radio.receive_bytes()
+        return bytes_to_list(r)
+else:
+    import serial, time
+    ser = serial.Serial(port, 115200, timeout=0.5)
+    
+    def send(trame):
+        ser.write(list_to_bytes(trame))
+        
+    def receive():
+        d=ser.read_until(';'.encode())
+        return bytes_to_list(d)
+    
+    def running_time():
+        return time.time()*1000
+    
+    def sleep(t):
+        return time.sleep(t//1000)
+    
+def list_to_bytes(payload:list[int]):    
+    return (','.join(str(x) for x in payload)+';').encode()
+
+def bytes_to_list(bytesPayload:bytes):
+    if not bytesPayload :
+        return None
+    return [float(s) for s in bytesPayload.decode().split(';')[0].split(',')]
 
 def str_to_list(text:str):
-    '''Convertit un str en list de int'''
     return [ord(c) for c in text]
 
 
 def list_to_str(liste:list[int]):
-    '''Convertit un str en list de int'''
     return ''.join([chr(i) for i in liste])
+#######################################################################################
 
 
-def list_to_bytes(payload:list[int]):    
-    '''
-    Convertit une liste de int en bytes
-            Parameters:
-                    payload(List[int]): payload in int format
-            Returns:
-                    bytesPayload(bytes): payload in bytes format
-    '''
-    return b''.join([i.to_bytes(2, "little")  for i in payload])
-
-def bytes_to_list(bytesPayload:bytes):
-    '''
-    Convertit des bytes en List[int]
-            Parameters:
-                    bytesPayload(bytes): payload in bytes format
-            Returns:
-                    intPayload(List[int]): payload in int format
-    '''
-    if bytesPayload is None :
-        return None
-    bytesList = [bytesPayload[i:i+2] for i in range(0, len(bytesPayload), 2)]
-    return [int.from_bytes(b, "little") for b in bytesList]   
 
 
 def envoi_message(id_dest, id_exped, id_category, payload):
@@ -49,13 +59,15 @@ def envoi_message(id_dest, id_exped, id_category, payload):
     
     # Envoi + Attente du ack et ré-essai
     acked = False
+    
     t0 = running_time()
     
     while not acked and running_time()-t0 < Timeout:
-        radio.send_bytes(list_to_bytes(trame))
+        send(trame)
         sleep(tryTime)
         acked = check_last_message_ack(id_exped)
-        
+
+    
     seqNum = (seqNum+1)%256
     return acked
     
@@ -67,7 +79,7 @@ def envoi_ack(id_dest, id_exped, id_category, payload, ackSeqNum):
     trame = trame + [checksum]
     
     # Envoi
-    radio.send_bytes(list_to_bytes(trame))
+    send(trame)
     return True
 
 def check_last_message_ack(id_exped):
@@ -79,7 +91,7 @@ def check_last_message_ack(id_exped):
     
 def reception_message(mon_id):
     # Reception de la trame
-    trame = bytes_to_list(radio.receive_bytes())
+    trame = receive()
     
     # Deconstruction de la trame
     if trame :
@@ -98,28 +110,23 @@ def reception_message(mon_id):
     return None, None, None, None, None # Retourne None en cas d'échec de réception
 
 if __name__ == '__main__':
-    mon_id = 1
-    role = "expediteur"
+    mon_id = 0
 
-
+    sleep(2000)
     while True:      
-        if role == "expediteur":
-            data = str_to_list("coucou") # [5, 623, 212, 40]
-            id_msg = 12
-            dest_id = 0
             
-            print("Envoi msg", envoi_message(dest_id, mon_id, id_msg, data))
-            sleep(1000)
+            print("Envoi msg", seqNum, "reçu" , envoi_message(1, mon_id, 12, [5, 623]))
             
 
-        elif role == "destinataire":
-            id_dest, id_exped, id_category, payload, seqNum = reception_message(mon_id)
+            id_dest, id_exped, id_category, payload, received_seqNum = reception_message(1)
             
             if id_dest != None:
-                print("Message", seqNum,"pour", id_dest,"de",  id_exped, "-- type", id_category, "-- Contenu :", list_to_str(payload))
-                display.scroll(list_to_str(payload))
+                print("Message", received_seqNum,"pour", id_dest,"de",  id_exped, "-- type", id_category, "-- Contenu :", payload)
+
             sleep(200)
         
         
+
+
 
 

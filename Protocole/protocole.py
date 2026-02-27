@@ -1,21 +1,26 @@
-seqNum = 0
-tryTime = 200
+# Constantes
+TryTime = 200
 Timeout = 1000
-port = '/dev/ttyACM0' #ou 'radio'
+SerialPort = '/dev/ttyACM0'
+
+# Variables globales
+seqNum = 0
 
 ############## PAS BESOIN DE COMPRENDRE CECI ###########################################
-if port == "radio":
+try:  # micro:bit
     from microbit import *
     import radio
+    
     def send(trame):
         radio.send_bytes(list_to_bytes(trame))
         
     def receive():
-        r= radio.receive_bytes()
+        r = radio.receive_bytes()
         return bytes_to_list(r)
-else:
+    
+except:  # PC with serial link
     import serial, time
-    ser = serial.Serial(port, 115200, timeout=0.5)
+    ser = serial.Serial(SerialPort, 115200, timeout=0.2)
     
     def send(trame):
         ser.write(list_to_bytes(trame))
@@ -28,8 +33,9 @@ else:
         return time.time()*1000
     
     def sleep(t):
-        return time.sleep(t//1000)
-    
+        return time.sleep(t/1000)
+
+# Fonctions utiles
 def list_to_bytes(payload:list[int]):    
     return (','.join(str(x) for x in payload)+';').encode()
 
@@ -40,7 +46,6 @@ def bytes_to_list(bytesPayload:bytes):
 
 def str_to_list(text:str):
     return [ord(c) for c in text]
-
 
 def list_to_str(liste:list[int]):
     return ''.join([chr(i) for i in liste])
@@ -64,7 +69,7 @@ def envoi_message(id_dest, id_exped, id_category, payload):
     
     while not acked and running_time()-t0 < Timeout:
         send(trame)
-        sleep(tryTime)
+        sleep(TryTime)
         acked = check_last_message_ack(id_exped)
 
     

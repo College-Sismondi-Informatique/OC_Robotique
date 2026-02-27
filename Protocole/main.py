@@ -13,7 +13,7 @@ mon_id = 1
 
 while True:      
         
-#         print("Envoi msg", envoi_message(0, mon_id, 12, [5, 623, 212, 40]))
+        print("Envoi msg", envoi_message(0, mon_id, 12, [5, 623, 212, 40]))
         
 
         id_dest, id_exped, id_category, payload, received_seqNum = reception_message(mon_id)
